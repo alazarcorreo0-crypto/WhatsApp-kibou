@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envío Rápido - Paquetería</title>
+    <title>Envío Rápido con Escáner - Paquetería</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             background-color: #f4f6f9;
             margin: 0;
             padding: 20px;
@@ -23,8 +25,8 @@
         }
         h2 {
             color: #333;
-            margin-top: 0;
             text-align: center;
+            margin-top: 0;
         }
         .form-group {
             margin-bottom: 18px;
@@ -43,10 +45,28 @@
             box-sizing: border-box;
             font-size: 16px;
         }
-        input:focus, textarea:focus {
-            border-color: #3182ce;
-            outline: none;
+        /* Estilos para el contenedor de la cámara */
+        #reader {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px dashed #3182ce;
+            margin-bottom: 15px;
+            background: #f8fafc;
         }
+        .btn-scan {
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        .btn-scan:hover { background-color: #2b6cb0; }
+        
         .btn-whatsapp {
             background-color: #25D366;
             color: white;
@@ -57,15 +77,10 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
             transition: background 0.2s;
         }
-        .btn-whatsapp:hover {
-            background-color: #1ebd57;
-        }
+        .btn-whatsapp:hover { background-color: #1ebd57; }
+        
         .link-container {
             margin-top: 15px;
             background: #e2e8f0;
@@ -82,68 +97,97 @@
 <div class="card">
     <h2>Notificación de Paquetes</h2>
     
-    <!-- 1. Campo de Guía (Escaneable) -->
     <div class="form-group">
-        <label for="numeroGuia">Número de Guía (QR / Barras)</label>
-        <input type="text" id="numeroGuia" placeholder="Escanea o escribe la guía">
+        <label>Escanear Código (QR / Barras)</label>
+        <button class="btn-scan" type="button" onclick="encenderCamara()">📷 Abrir Cámara para Escanear</button>
+        <div id="reader"></div>
     </div>
 
-    <!-- 2. Número de Teléfono -->
+    <div class="form-group">
+        <label for="numeroGuia">Número de Guía</label>
+        <input type="text" id="numeroGuia" placeholder="Aparecerá aquí al escanear o escribe manual">
+    </div>
+
     <div class="form-group">
         <label for="telefono">Número de WhatsApp</label>
         <input type="tel" id="telefono" placeholder="Ej: 526671234567 (Con clave de país)">
     </div>
 
-    <!-- 3. Comentario / Mensaje Personalizado -->
     <div class="form-group">
         <label for="comentario">Comentario / Nota adicional</label>
-        <textarea id="comentario" rows="3" placeholder="Ej: Favor de traer identificación, horario hasta las 6 PM."></textarea>
+        <textarea id="comentario" rows="3" placeholder="Ej: Traer identificación, cerramos a las 6pm."></textarea>
     </div>
 
-    <!-- Botón de Acción -->
     <button class="btn-whatsapp" onclick="enviarMensaje()">
-        <span>Enviar a WhatsApp</span>
+        Enviar a WhatsApp
     </button>
 
-    <!-- Contenedor por si quieren copiar el link manualmente -->
     <div class="link-container" id="linkGenerado"></div>
 </div>
 
 <script>
+let html5QrcodeScanner;
+
+// Función para activar la cámara del dispositivo
+function encenderCamara() {
+    // Configuramos el lector para que detecte QR y códigos de barras comunes
+    html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { 
+            fps: 10, // Cuadros por segundo (ajusta la velocidad de lectura)
+            qrbox: { width: 250, height: 150 } // Área visible para centrar el código
+        },
+        /* verbose= */ false
+    );
+    
+    // Inicializa el escáner y espera el éxito
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+}
+
+// Qué pasa cuando detecta un código correctamente
+function onScanSuccess(decodedText, decodedResult) {
+    // 1. Ponemos el texto detectado en el campo de la guía
+    document.getElementById('numeroGuia').value = decodedText;
+    
+    // 2. Apagamos la cámara automáticamente para no gastar batería ni recursos
+    html5QrcodeScanner.clear();
+    
+    // Un pequeño aviso de que funcionó
+    alert("¡Código leído con éxito: " + decodedText + "!");
+}
+
+// Silenciamos los errores comunes de enfoque para no saturar la pantalla
+function onScanFailure(error) {
+    // Control interno de la librería mientras busca códigos. Se deja vacío.
+}
+
+// Función para armar y enviar el enlace de WhatsApp
 function enviarMensaje() {
-    // Obtener los valores de los inputs
     const guia = document.getElementById('numeroGuia').value.trim();
-    const telefono = document.getElementById('telefono').value.trim().replace(/\D/g, ''); // Limpia espacios o guiones
+    const telefono = document.getElementById('telefono').value.trim().replace(/\D/g, ''); 
     const comentario = document.getElementById('comentario').value.trim();
 
     if (!telefono) {
-        alert("Por favor, ingresa un número de teléfono válido.");
+        alert("Por favor, ingresa un número de teléfono.");
         return;
     }
 
-    // Estructurar el mensaje predefinido de forma profesional
     let mensaje = `👋 ¡Hola! Te informamos que tu paquete con el número de guía *${guia || 'N/A'}* ya se encuentra listo para ser entregado en sucursal.`;
     
-    // Si hay un comentario, se agrega abajo
     if (comentario) {
         mensaje += `\n\n*Nota adicional:* ${comentario}`;
     }
 
-    // Codificar el texto para la URL de WhatsApp
     const mensajeCodificado = encodeURIComponent(mensaje);
-    
-    // Generar el enlace dinámico de WhatsApp (wa.me)
     const urlWhatsapp = `https://wa.me/${telefono}?text=${mensajeCodificado}`;
 
-    // Mostrar el link en pantalla por si acaso necesitan copiarlo
     const container = document.getElementById('linkGenerado');
     container.style.display = 'block';
     container.innerHTML = `<strong>Enlace generado:</strong> <a href="${urlWhatsapp}" target="_blank">${urlWhatsapp}</a>`;
 
-    // Redirigir automáticamente abriendo una nueva pestaña (WhatsApp Web o App)
     window.open(urlWhatsapp, '_blank');
     
-    // Opcional: Limpiar los campos para el siguiente cliente, excepto la nota si es fija
+    // Limpieza express para el siguiente cliente
     document.getElementById('numeroGuia').value = '';
     document.getElementById('telefono').value = '';
 }
