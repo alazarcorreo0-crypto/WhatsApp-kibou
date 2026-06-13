@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envío Rápido - Un Solo Clic</title>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <title>Envío Rápido - Escáner de Barras Real</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     
     <style>
         body {
@@ -45,7 +45,8 @@
             box-sizing: border-box;
             font-size: 16px;
         }
-        /* Contenedor del video (oculto al inicio) */
+        
+        /* Contenedor de la cámara optimizado */
         #camera-container {
             display: none;
             width: 100%;
@@ -56,10 +57,25 @@
             background: #000;
             position: relative;
         }
-        #reader {
+        /* Ajuste crucial para que Quagga no desborde el video */
+        #interactive video {
             width: 100%;
             height: auto;
+            vertical-align: top;
         }
+        /* Guía visual roja en el centro */
+        .laser-guide {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 90%;
+            height: 2px;
+            background-color: red;
+            box-shadow: 0 0 8px red;
+            z-index: 10;
+            transform: translateY(-50%);
+        }
+
         .btn-scan {
             background-color: #3182ce;
             color: white;
@@ -72,9 +88,8 @@
             width: 100%;
             font-size: 15px;
         }
-        .btn-scan.active {
-            background-color: #e53e3e;
-        }
+        .btn-scan.active { background-color: #e53e3e; }
+        
         .btn-whatsapp {
             background-color: #25D366;
             color: white;
@@ -97,7 +112,8 @@
     <button class="btn-scan" id="btnCamara" type="button" onclick="controlarCamara()">📷 Abrir Cámara</button>
     
     <div id="camera-container">
-        <div id="reader"></div>
+        <div class="laser-guide"></div>
+        <div id="interactive" class="viewport"></div>
     </div>
 
     <div class="form-group">
@@ -119,71 +135,71 @@
 </div>
 
 <script>
-let html5Qrcode;
 let camaraEncendida = false;
 
 function controlarCamara() {
     const btn = document.getElementById('btnCamara');
     const container = document.getElementById('camera-container');
 
-    // Si la cámara ya está encendida, el mismo botón la apaga
     if (camaraEncendida) {
         apagarCamara();
         return;
     }
 
-    // Si está apagada, la encendemos de golpe
     container.style.display = 'block';
     btn.innerText = "❌ Cerrar Cámara";
     btn.classList.add('active');
-    
-    // Inicializamos la instancia limpia (sin interfaz automática)
-    html5Qrcode = new Html5Qrcode("reader");
-    
-    // "environment" le dice al navegador que use la cámara TRASERA por defecto (ideal para celulares)
-    html5Qrcode.start(
-        { facingMode: "environment" }, 
-        {
-            fps: 15,
-            qrbox: (width, height) => {
-                // Define un área de escaneo cuadrada y centrada adaptativa
-                const minDimension = Math.min(width, height);
-                const qrboxSize = Math.floor(minDimension * 0.7);
-                return { width: qrboxSize, height: qrboxSize };
-            }
-        },
-        onScanSuccess
-    ).then(() => {
-        camaraEncendida = true;
-    }).catch(err => {
-        console.error("Error al abrir la cámara:", err);
-        alert("No se pudo acceder a la cámara trasera directa.");
-        apagarCamara();
-    });
-}
 
-function onScanSuccess(decodedText, decodedResult) {
-    // Pone el resultado en el input
-    document.getElementById('numeroGuia').value = decodedText;
-    // Apaga todo automáticamente para ahorrar batería
-    apagarCamara();
+    // Inicializamos Quagga para códigos de barra tradicionales
+    Quagga.init({
+        inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: document.querySelector('#interactive'), // Dónde meter el video
+            constraints: {
+                width: 640,
+                height: 480,
+                facingMode: "environment" // Obliga a usar la cámara trasera
+            },
+        },
+        decoder: {
+            // Activamos los lectores de barras más comunes en paquetería (code_128, ean, upc)
+            readers: ["code_128_reader", "ean_reader", "upc_reader", "code_39_reader"]
+        },
+        locate: true // Ayuda a que encuentre el código aunque esté medio chueco
+    }, function(err) {
+        if (err) {
+            console.error(err);
+            alert("Error al iniciar la cámara trasera.");
+            apagarCamara();
+            return;
+        }
+        Quagga.start();
+        camaraEncendida = true;
+    });
+
+    // Qué hacer cuando detecta un código válido
+    Quagga.onDetected(function(result) {
+        if (result.codeResult && result.codeResult.code) {
+            const codigoDetectado = result.codeResult.code;
+            
+            // Asignamos el valor obtenido al input
+            document.getElementById('numeroGuia').value = codigoDetectado;
+            
+            // Sonido o vibración ligera si el cel lo permite
+            if (navigator.vibrate) navigator.vibrate(100);
+            
+            // Apagamos para no dejar la cámara colgada
+            apagarCamara();
+        }
+    });
 }
 
 function apagarCamara() {
     const btn = document.getElementById('btnCamara');
     const container = document.getElementById('camera-container');
     
-    if (html5Qrcode && html5Qrcode.isScanning) {
-        html5Qrcode.stop().then(() => {
-            html5Qrcode.clear();
-            ocultarInterfazCamara(btn, container);
-        }).catch(err => console.error(err));
-    } else {
-        ocultarInterfazCamara(btn, container);
-    }
-}
-
-function ocultarInterfazCamara(btn, container) {
+    Quagga.stop();
     container.style.display = 'none';
     btn.innerText = "📷 Abrir Cámara";
     btn.classList.remove('active');
