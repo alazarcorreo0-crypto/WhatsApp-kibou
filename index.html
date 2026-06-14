@@ -2,240 +2,138 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envío Rápido - Paquetería J&T</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #f4f6f9;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-        }
-        .card {
-            background: #ffffff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 450px;
-        }
-        h2 {
-            color: #d32f2f; /* Color llamativo tipo J&T */
-            text-align: center;
-            margin-top: 0;
-        }
-        .form-group {
-            margin-bottom: 18px;
-        }
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            color: #4a5568;
-        }
-        input, textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        
-        #camera-container {
-            display: none;
-            width: 100%;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid #d32f2f;
-            margin-bottom: 15px;
-            background: #000;
-            position: relative;
-        }
-        #interactive video {
-            width: 100%;
-            height: auto;
-            vertical-align: top;
-        }
-        .laser-guide {
-            position: absolute;
-            top: 50%;
-            left: 5%;
-            width: 90%;
-            height: 2px;
-            background-color: red;
-            box-shadow: 0 0 8px red;
-            z-index: 10;
-            transform: translateY(-50%);
-        }
-
-        .btn-scan {
-            background-color: #3182ce;
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 15px;
-            width: 100%;
-            font-size: 15px;
-        }
-        .btn-scan.active { background-color: #e53e3e; }
-        
-        .btn-whatsapp {
-            background-color: #25D366;
-            color: white;
-            border: none;
-            padding: 14px;
-            width: 100%;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-        }
-        .btn-whatsapp:hover { background-color: #1ebd57; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Envío Rápido WhatsApp - J&T Villa Juárez</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
-<body>
+<body class="bg-gray-100 font-sans min-h-screen flex flex-col items-center p-4">
 
-<div class="card">
-    <h2>Paquetería J&T - Villa Juárez</h2>
-    
-    <button class="btn-scan" id="btnCamara" type="button" onclick="controlarCamara()">📷 Abrir Cámara para Escanear</button>
-    
-    <div id="camera-container">
-        <div class="laser-guide"></div>
-        <div id="interactive" class="viewport"></div>
-    </div>
+    <main class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden my-2 flex flex-col min-h-[620px]">
+        <header class="bg-slate-800 text-white p-4 text-center">
+            <h1 class="text-lg font-bold tracking-wide uppercase">Paquetería J&T</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Envío Rápido de Notificaciones - Villa Juárez</p>
+        </header>
 
-    <div class="form-group">
-        <label for="numeroGuia">Número de Guía</label>
-        <input type="text" id="numeroGuia" placeholder="Escanea el código de barras">
-    </div>
+        <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+            
+            <section class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <button type="button" onclick="alternarEscaner()" id="btnEscanner" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition text-sm flex justify-center items-center gap-2 shadow-xs">
+                    <span>📷 Activar Escáner de Guía</span>
+                </button>
+                <div id="lector-qr" class="mt-2 rounded-lg overflow-hidden hidden"></div>
+            </section>
 
-    <div class="form-group">
-        <label for="telefono">Número de WhatsApp del Cliente</label>
-        <input type="tel" id="telefono" placeholder="Ej: 526671234567">
-    </div>
+            <div class="space-y-4 flex-1">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase mb-0.5">Número de Guía</label>
+                    <input type="text" id="inputGuia" placeholder="Escanea el código o escribe manual" class="w-full border border-gray-300 rounded-lg p-2.5 uppercase font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
 
-    <div class="form-group">
-        <label for="comentario">Comentario Extra (Opcional)</label>
-        <textarea id="comentario" rows="2" placeholder="Ej: Está pesado, traer carro..."></textarea>
-    </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase mb-0.5">Número de WhatsApp</label>
+                    <input type="tel" id="inputTelefono" inputmode="numeric" pattern="[0-9]*" placeholder="Ej: 6671234567" class="w-full border border-gray-300 rounded-lg p-2.5 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
 
-    <button class="btn-whatsapp" onclick="enviarMensaje()">🚀 Enviar Notificación por WhatsApp</button>
-</div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase mb-0.5">Comentario / Nota Adicional (Opcional)</label>
+                    <textarea id="inputComentario" rows="2" placeholder="Ej: Es un paquete grande, pasar antes de las 6..." class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                </div>
+            </div>
 
-<script>
-let camaraEncendida = false;
+            <div class="pt-2">
+                <button onclick="enviarNotificacionWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md text-sm transition flex justify-center items-center gap-2">
+                    <span>🚀 Enviar a WhatsApp</span>
+                </button>
+            </div>
 
-function controlarCamara() {
-    const btn = document.getElementById('btnCamara');
-    const container = document.getElementById('camera-container');
+        </div>
+    </main>
 
-    if (camaraEncendida) {
-        apagarCamara();
-        return;
-    }
-
-    container.style.display = 'block';
-    btn.innerText = "❌ Cerrar Cámara";
-    btn.classList.add('active');
-
-    Quagga.init({
-        inputStream: {
-            name: "Live",
-            type: "LiveStream",
-            target: document.querySelector('#interactive'),
-            constraints: {
-                width: 640,
-                height: 480,
-                facingMode: "environment"
-            },
-        },
-        decoder: {
-            readers: ["code_128_reader", "ean_reader", "upc_reader", "code_39_reader"]
-        },
-        locate: true
-    }, function(err) {
-        if (err) {
-            console.error(err);
-            alert("Error al iniciar la cámara.");
-            apagarCamara();
-            return;
+    <script>
+        // LÓGICA DEL ESCÁNER INTEGRAL DE TU V13
+        let html5QrcodeScanner;
+        
+        function alternarEscaner() {
+            const lectorDiv = document.getElementById('lector-qr');
+            const btn = document.getElementById('btnEscanner');
+            
+            if (lectorDiv.classList.contains('hidden')) {
+                lectorDiv.classList.remove('hidden'); 
+                btn.textContent = "🛑 Apagar Cámara"; 
+                btn.classList.replace('bg-blue-600', 'bg-gray-600');
+                
+                html5QrcodeScanner = new Html5Qrcode("lector-qr");
+                
+                // Configuración exacta que te jala al tiro con la cámara trasera
+                html5QrcodeScanner.start(
+                    { facingMode: "environment" }, 
+                    { fps: 10, qrbox: { width: 250, height: 140 } }, 
+                    (txt) => {
+                        document.getElementById('inputGuia').value = txt.toUpperCase(); 
+                        detenerEscaner();
+                    }, 
+                    () => {}
+                ).catch(err => alert("Error al acceder a la cámara: " + err));
+            } else { 
+                detenerEscaner(); 
+            }
         }
-        Quagga.start();
-        camaraEncendida = true;
-    });
 
-    Quagga.onDetected(function(result) {
-        if (result.codeResult && result.codeResult.code) {
-            document.getElementById('numeroGuia').value = result.codeResult.code;
-            if (navigator.vibrate) navigator.vibrate(100);
-            apagarCamara();
+        function detenerEscaner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('lector-qr').classList.add('hidden');
+                    document.getElementById('btnEscanner').textContent = "📷 Activar Escáner de Guía";
+                    document.getElementById('btnEscanner').classList.replace('bg-gray-600', 'bg-blue-600');
+                }).catch(err => console.error(err));
+            }
         }
-    });
-}
 
-function apagarCamara() {
-    const btn = document.getElementById('btnCamara');
-    const container = document.getElementById('camera-container');
-    
-    Quagga.stop();
-    container.style.display = 'none';
-    btn.innerText = "📷 Abrir Cámara para Escanear";
-    btn.classList.remove('active');
-    camaraEncendida = false;
-}
+        // LÓGICA DE ENVÍO Y CONFIGURACIÓN DE MENSAJE DINÁMICO
+        function enviarNotificacionWhatsApp() {
+            const guia = document.getElementById('inputGuia').value.trim().toUpperCase();
+            const telefono = document.getElementById('inputTelefono').value.trim().replace(/\D/g, ''); 
+            const comentario = document.getElementById('inputComentario').value.trim();
 
-function enviarMensaje() {
-    const guia = document.getElementById('numeroGuia').value.trim();
-    const telefono = document.getElementById('telefono').value.trim().replace(/\D/g, ''); 
-    const comentario = document.getElementById('comentario').value.trim();
+            if (!telefono) {
+                alert("Por favor, ingresa el número de teléfono del cliente.");
+                return;
+            }
 
-    if (!telefono) {
-        alert("Por favor, ingresa el número de teléfono del cliente.");
-        return;
-    }
+            // 🕒 Captura de hora del teléfono para definir el saludo de forma automática
+            const ahora = new Date();
+            const hora = ahora.getHours(); 
+            let saludo = "¡Buenas tardes!"; // Formato de las 12:00 PM en adelante
 
-    // 🕒 Lógica de tiempo: Revisa la hora actual del celular/PC
-    const ahora = new Date();
-    const hora = ahora.getHours(); // Formato 0 a 23 horas
-    let saludo = "¡Buenas tardes!"; // Por defecto de las 12:00 PM en adelante
+            if (hora < 12) {
+                saludo = "¡Buenos días!"; // Formato antes de las 12:00 PM
+            }
 
-    if (hora < 12) {
-        saludo = "¡Buenos días!"; // Si es antes de mediodía
-    }
+            // 💬 Armado del mensaje con la estructura oficial que me pasaste
+            let mensaje = `✨ ${saludo} ✨\n\n`;
+            mensaje += `Le saludamos desde su punto de entrega *Paquetería J&T* (ubicados a un costado de Coppel, Villa Juárez). 📍\n\n`;
+            mensaje += `Tenemos el gusto de informarle que su paquete con número de seguimiento *${guia || 'N/A'}* ya está disponible para recoger. 📦✅\n\n`;
+            mensaje += `Le sugerimos pasar por él a más tardar el día de hoy para evitar que sea devuelto a origen. ⚠️ Recuerde traer su *INE en físico* para realizar la entrega. 🪪\n\n`;
+            
+            // Si agregaron alguna nota manual en el mostrador, se suma aquí abajo
+            if (comentario) {
+                mensaje += `*Nota adicional:* ${comentario}\n\n`;
+            }
+            
+            mensaje += `¡Será un placer atenderle! 😊`;
 
-    // 💬 Estructura exacta de tu mensaje con el saludo dinámico y la guía limpia
-    let mensaje = `✨ ${saludo} ✨\n\n`;
-    mensaje += `Le saludamos desde su punto de entrega *Paquetería J&T* (ubicados a un costado de Coppel, Villa Juárez). 📍\n\n`;
-    mensaje += `Tenemos el gusto de informarle que su paquete con número de seguimiento *${guia || 'N/A'}* ya está disponible para recoger. 📦✅\n\n`;
-    mensaje += `Le sugerimos pasar por él a más tardar el día de hoy para evitar que sea devuelto a origen. ⚠️ Recuerde traer su *INE en físico* para realizar la entrega. 🪪\n\n`;
-    
-    // Si agregaron un comentario manual en el formulario, se anexa elegantemente al final
-    if (comentario) {
-        mensaje += `*Nota adicional:* ${comentario}\n\n`;
-    }
-    
-    mensaje += `¡Será un placer atenderle! 😊`;
-
-    // Abrimos la API de WhatsApp con el mensaje estructurado
-    const urlWhatsapp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-    window.open(urlWhatsapp, '_blank');
-    
-    // Limpieza rápida de los inputs de datos para el siguiente cliente
-    document.getElementById('numeroGuia').value = '';
-    document.getElementById('telefono').value = '';
-    document.getElementById('comentario').value = '';
-}
-</script>
-
+            // Construcción del enlace dinámico oficial de WhatsApp sin intermediarios
+            const urlWhatsapp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+            
+            // Abre WhatsApp en una pestaña nueva o directamente en la App del cel
+            window.open(urlWhatsapp, '_blank');
+            
+            // Limpieza express de los campos para dejar el mostrador listo para el siguiente cliente
+            document.getElementById('inputGuia').value = '';
+            document.getElementById('inputTelefono').value = '';
+            document.getElementById('inputComentario').value = '';
+        }
+    </script>
 </body>
 </html>
