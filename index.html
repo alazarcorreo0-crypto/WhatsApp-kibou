@@ -6,8 +6,20 @@
     <title>Envío Rápido Multi-Guía - J&T</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* Animación para el flash de captura */
+        @keyframes flashEffect {
+            0% { opacity: 0.8; background-color: rgba(255, 255, 255, 0.9); }
+            100% { opacity: 0; background-color: transparent; }
+        }
+        .flash-activo {
+            animation: flashEffect 0.2s ease-out;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans min-h-screen flex flex-col items-center p-4">
+<body class="bg-gray-100 font-sans min-h-screen flex flex-col items-center p-4 select-none">
+
+    <div id="pantalla-flash" class="fixed inset-0 pointer-events-none z-50 opacity-0"></div>
 
     <main class="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden my-2 flex flex-col min-h-[650px]">
         <header class="bg-slate-800 text-white p-4 text-center">
@@ -17,11 +29,16 @@
 
         <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
             
-            <section class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+            <section class="bg-gray-50 p-3 rounded-xl border border-gray-200 relative">
                 <button type="button" onclick="alternarEscaner()" id="btnEscanner" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition text-sm flex justify-center items-center gap-2 shadow-xs">
-                    <span>📷 Activar Escáner de Guía</span>
+                    <span id="txtBtnEscaner">📷 Activar Escáner de Guía</span>
                 </button>
-                <div id="lector-qr" class="mt-2 rounded-lg overflow-hidden hidden"></div>
+                
+                <div id="lector-qr" class="mt-2 rounded-lg overflow-hidden hidden transition-all duration-200"></div>
+                
+                <div id="aviso-flotante" class="absolute bottom-5 left-1/2 -translate-x-1/2 bg-emerald-600 text-white font-bold text-xs py-1.5 px-3 rounded-full shadow-md hidden z-10 transition-all">
+                    ¡Guía Agregada! ➔
+                </div>
             </section>
 
             <div class="space-y-4 flex-1">
@@ -43,8 +60,9 @@
                         <label class="block text-[11px] font-bold text-gray-500 uppercase">Guías Acumuladas (<span id="contadorGuias">0</span>)</label>
                         <button type="button" onclick="limpiarGuias()" class="text-[10px] text-red-600 font-bold hover:underline">Limpiar todas</button>
                     </div>
-                    <div id="listaGuias" class="flex flex-wrap gap-1.5 p-3 bg-gray-50 border border-gray-200 rounded-xl min-h-[60px] max-h-[120px] overflow-y-auto">
-                        </div>
+                    <div id="listaGuias" class="flex flex-wrap gap-1.5 p-3 bg-gray-50 border border-gray-200 rounded-xl min-h-[60px] max-h-[120px] overflow-y-auto transition-colors duration-200">
+                        <span class="text-xs text-gray-400 m-auto">Ninguna guía escaneada</span>
+                    </div>
                 </div>
 
                 <div>
@@ -64,10 +82,30 @@
 
     <script>
         let html5QrcodeScanner;
-        // Array para guardar todas las guías capturadas
         let LISTA_GUIAS = [];
-        
-        // Manejo del escáner avanzado
+        let controlBloqueoLectura = false; // Evita lecturas repetidas en ráfaga de milisegundos
+
+        // 🔊 Generador de sonido nativo (Beep electrónico de éxito)
+        function sonarBeepExito() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(950, audioCtx.currentTime); // Tono agudo y limpio
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime); // Volumen moderado
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1); // Duración de 100ms
+            } catch (e) {
+                console.log("Audio no soportado o bloqueado por el navegador.");
+            }
+        }
+
         function alternarEscaner() {
             const lectorDiv = document.getElementById('lector-qr');
             const btn = document.getElementById('btnEscanner');
@@ -82,10 +120,8 @@
                     { facingMode: "environment" }, 
                     { fps: 12, qrbox: { width: 250, height: 140 } }, 
                     (txt) => {
-                        // Al detectar código, lo metemos directo a la lista multi-guía
-                        inyectarGuiaArray(txt.toUpperCase());
-                        // No apagamos la cámara para que el operador pueda escanear la que sigue de volada
-                        if (navigator.vibrate) navigator.vibrate(80); 
+                        const codigoLimpio = txt.toUpperCase().trim();
+                        inyectarGuiaArray(codigoLimpio);
                     }, 
                     () => {}
                 ).catch(err => alert("Error al acceder a la cámara: " + err));
@@ -104,7 +140,6 @@
             }
         }
 
-        // Detectar si escriben manual y dan Enter
         function detectarEnterGuia(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -112,7 +147,6 @@
             }
         }
 
-        // Agregar desde el botón o Enter manual
         function agregarGuiaLista() {
             const input = document.getElementById('inputGuia');
             const valor = input.value.trim().toUpperCase();
@@ -123,16 +157,52 @@
             }
         }
 
-        // Función centralizada para meter guías al arreglo y pintar las etiquetas
+        // LÓGICA CENTRAL CON ALERTAS MEJORADAS
         function inyectarGuiaArray(codigo) {
-            // Evitamos duplicar la misma guía en el mismo mensaje
-            if (LISTA_GUIAS.includes(codigo)) return;
+            if (controlBloqueoLectura) return; // Si está procesando un aviso anterior, ignora transitoriamente
+            
+            const cajaLista = document.getElementById('listaGuias');
 
+            // ⚠️ ALERTA DE REPETIDO: Si ya existe en la lista
+            if (LISTA_GUIAS.includes(codigo)) {
+                controlBloqueoLectura = true;
+                cajaLista.classList.replace('bg-gray-50', 'bg-red-100'); // Cambia el contenedor a rojo temporal
+                if (navigator.vibrate) navigator.vibrate([80, 50, 80]); // Doble vibración corta de advertencia
+                
+                setTimeout(() => {
+                    cajaLista.classList.replace('bg-red-100', 'bg-gray-50');
+                    controlBloqueoLectura = false;
+                }, 800);
+                return;
+            }
+
+            // ⭐ LECTURA CORRECTA (NUEVA GUÍA)
+            controlBloqueoLectura = true;
             LISTA_GUIAS.push(codigo);
+            
+            // 1. Ejecutar sonido y vibración física
+            sonarBeepExito();
+            if (navigator.vibrate) navigator.vibrate(100);
+
+            // 2. Ejecutar Flash Visual en pantalla
+            const flash = document.getElementById('pantalla-flash');
+            flash.classList.add('flash-activo');
+            setTimeout(() => flash.classList.remove('flash-activo'), 200);
+
+            // 3. Desplegar letrero flotante temporal con el nombre de la guía
+            const aviso = document.getElementById('aviso-flotante');
+            aviso.textContent = `✓ ${codigo.substring(0, 10)}...`;
+            aviso.classList.remove('hidden');
+
             renderizarEtiquetasGuias();
+
+            // Desbloquear para la siguiente lectura tras un breve respiro (evita rebotes raros de cámara)
+            setTimeout(() => {
+                aviso.classList.add('hidden');
+                controlBloqueoLectura = false;
+            }, 700);
         }
 
-        // Eliminar una guía específica si el operador se equivocó
         function eliminarGuiaEspecifica(codigo) {
             LISTA_GUIAS = LISTA_GUIAS.filter(g => g !== codigo);
             renderizarEtiquetasGuias();
@@ -143,7 +213,6 @@
             renderizarEtiquetasGuias();
         }
 
-        // Dibuja las cajitas/etiquetas con una X para borrar
         function renderizarEtiquetasGuias() {
             const contenedor = document.getElementById('listaGuias');
             const contador = document.getElementById('contadorGuias');
@@ -166,7 +235,6 @@
             });
         }
 
-        // ENVÍO DE MENSAJE MULTI-GUÍA CON HORARIO AUTOMÁTICO
         function enviarNotificacionWhatsApp() {
             const telefono = document.getElementById('inputTelefono').value.trim().replace(/\D/g, ''); 
             const comentario = document.getElementById('inputComentario').value.trim();
@@ -180,41 +248,31 @@
                 return;
             }
 
-            // 🕒 Lógica horaria automatizada
             const ahora = new Date();
             const hora = ahora.getHours(); 
             let saludo = "¡Buenas tardes!";
             if (hora < 12) saludo = "¡Buenos días!";
 
-            // 📝 Construcción del texto dinámico para múltiples guías
             let textoGuias = "";
             if (LISTA_GUIAS.length === 1) {
                 textoGuias = `con número de seguimiento *${LISTA_GUIAS[0]}*`;
             } else {
-                // Si son varias guías, las enlista una abajo de otra con un puntito
                 textoGuias = `con los siguientes números de seguimiento:\n`;
-                LISTA_GUIAS.forEach(g => {
-                    textoGuias += `• *${g}*\n`;
-                });
-                textoGuias = textoGuias.trim(); // Limpia el último salto de línea
+                LISTA_GUIAS.forEach(g => { textoGuias += `• *${g}*\n`; });
+                textoGuias = textoGuias.trim();
             }
 
-            // 💬 Plantilla Unificada de J&T
             let mensaje = `✨ ${saludo} ✨\n\n`;
             mensaje += `Le saludamos desde su punto de entrega *Paquetería J&T* (ubicados a un costado de Coppel, Villa Juárez). 📍\n\n`;
             mensaje += `Tenemos el gusto de informarle que su paquete ${textoGuias} ya está disponible para recoger. 📦✅\n\n`;
             mensaje += `Le sugerimos pasar por él a más tardar el día de hoy para evitar que sea devuelto a origen. ⚠️ Recuerde traer su *INE en físico* para realizar la entrega. 🪪\n\n`;
             
-            if (comentario) {
-                mensaje += `*Nota adicional:* ${comentario}\n\n`;
-            }
-            
+            if (comentario) mensaje += `*Nota adicional:* ${comentario}\n\n`;
             mensaje += `¡Será un placer atenderle! 😊`;
 
             const urlWhatsapp = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
             window.open(urlWhatsapp, '_blank');
             
-            // Limpieza completa para el próximo cliente
             document.getElementById('inputTelefono').value = '';
             document.getElementById('inputComentario').value = '';
             limpiarGuias();
